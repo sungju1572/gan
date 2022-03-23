@@ -26,13 +26,14 @@ df = df.dropna()[['log_rtn','Close']]
 
 df_close = df['Close']
 df_log = df['log_rtn']
+df_log = df_log
 
 #변동률 계산
 roc = math.sqrt(((df_log - df_log.mean())**2).sum()/(len(df_log)-1))
 
 
 real_data = df_log.to_numpy()
-real_data = real_data.reshape(len(real_data),1)
+real_data = real_data.reshape(len(real_data),1) 
 
 
 """
@@ -183,6 +184,12 @@ plt.plot(fake_data)
 
 random.choice(fake_data_list )
 
+
+
+df_close = pd.DataFrame(df_close)
+df_close['stock'] = 0
+
+
 #수익률 계산
 stock_yield = roc * random.choice(fake_data_list ) + df_log.mean()
 for i in range(len(df_close)):
@@ -190,7 +197,7 @@ for i in range(len(df_close)):
 
 cumsum_list = []
 for i in range(len(df_close)):
-    a = df_close['Close'][0] * np.exp(df_close['stock'][i]*100)
+    a = df_close['Close'][0] * np.exp(df_close['stock'][i])
     cumsum_list.append(a)
 
 
@@ -200,11 +207,7 @@ len(df_close)
 
 
 
-
-
-df_close = pd.DataFrame(df_close)
-
-df_close['stock'] = df_close.Close.shift(1) * np.exp(stock_yield*100)
+df_close['stock'] = df_close.Close.shift(1) * np.exp(stock_yield)
 
 df_close = df_close.dropna()
 
@@ -220,16 +223,50 @@ colors = cm.rainbow(np.linspace(0, 1, 10))
 
 
 
+
 import itertools
-color_cycle= itertools.cycle(["orange","pink","blue","brown","red","grey","yellow","green"])
+color_cycle= itertools.cycle(["orange","pink","brown","red","grey","yellow","green"])
 
-for i in range(8):
-    stock_yield = roc * random.choice(fake_data_list ) + df_log.mean()
-    df_close['stock'] = df_close.Close.shift(1) * np.exp(stock_yield*100)
+for i in range(5):
+    
+    stock_random = []
+    for j in range(len(df_close)):
+        stock_random.append(roc * random.choice(fake_data_list ) + df_log.mean())
+    df_close['stock'] =  stock_random
+    
+    cumsum_list = []
+    for k in range(len(df_close)):
+        if k == 0:
+            a = df_close['Close'][0] * np.exp(df_close['stock'][k])
+            cumsum_list.append(a)
+        else : 
+            b = cumsum_list[-1] * np.exp(df_close['stock'][k])
+            cumsum_list.append(b)
+            
+            
+    df_close["cumsum"] = cumsum_list
 
-    df_close = df_close.dropna()
+    plt.plot(df_close["cumsum"][:500], color = next(color_cycle), label ="gan data_ %d" %i)
+#plt.plot(df_close[:100].Close, '-b', label="real data")
+plt.legend()
 
 
-    plt.plot(df_close[-100:].stock, color = next(color_cycle))
+df_close["fake"] = fake_data_list
+
+fake_data_list = 
+
+plt.plot(df_close.stock)
+
+sns.kdeplot(df_close['stock'][ :], color='blue', bw=0.3, label='REAL data')
+sns.kdeplot(stock_random[ :], color='blue', bw=0.3, label='REAL data')
+stock_random.max()
+
+sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
+sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='fake data')
+plt.legend()
+
+
+
+2026.83*np.exp(-0.014336188)
 
 

@@ -24,6 +24,9 @@ df = fdr.DataReader('KS200','2020')
 df['log_rtn'] = np.log(df.Close/df.Close.shift(1))
 df = df.dropna()[['log_rtn','Close']]
 
+df  = df[58:]
+
+
 df_close = df['Close']
 df_log = df['log_rtn']
 df_log = df_log

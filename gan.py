@@ -108,6 +108,7 @@ n_batch_size = int(real_data.shape[0] / n_batch_cnt)
 
 EPOCHS = int(input('학습 횟수 설정: '))
 
+
 for epoch in range(EPOCHS):
     # 미니배치 업데이트
     for n in range(n_batch_cnt):
@@ -229,13 +230,14 @@ colors = cm.rainbow(np.linspace(0, 1, 10))
 
 import itertools
 color_cycle= itertools.cycle(["orange","pink","brown","red","grey","yellow","green"])
+earning_rate_mean = df_log.mean()*100 -0.5*((df_log.mean()*100)*(df_log.mean()*100))
 
-for i in range(5):
+for i in range(7):
     
-    stock_random = []
+    stock_random = np.array([])
     for j in range(len(df_close)):
-        stock_random.append(roc * random.choice(fake_data_list ) + df_log.mean())
-    df_close['stock'] =  stock_random
+        stock_random = np.append(stock_random, ((roc*100 * (random.choice(fake_data_list) * 100) +(earning_rate_mean) )))
+    df_close['stock'] =  stock_random/100
     
     cumsum_list = []
     for k in range(len(df_close)):
@@ -249,16 +251,16 @@ for i in range(5):
             
     df_close["cumsum"] = cumsum_list
 
-    plt.plot(df_close["cumsum"][:500], color = next(color_cycle), label ="gan data_ %d" %i)
-#plt.plot(df_close[:100].Close, '-b', label="real data")
+    plt.plot(df_close[:-1]["cumsum"][:100], color = next(color_cycle), label ="gan data_ %d" %i)
+plt.plot(df_close[:100].Close, '-b', label="real data")
 plt.legend()
 
 
-df_close["fake"] = fake_data_list
 
-fake_data_list = 
+earning_rate_mean = df_log.mean()*100 -0.5*((df_log.mean()*100)*(df_log.mean()*100))
 
-plt.plot(df_close.stock)
+
+plt.plot(df_close[:-1].cumsum)
 
 sns.kdeplot(df_close['stock'][ :], color='blue', bw=0.3, label='REAL data')
 sns.kdeplot(stock_random[ :], color='blue', bw=0.3, label='REAL data')
@@ -267,9 +269,5 @@ stock_random.max()
 sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
 sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='fake data')
 plt.legend()
-
-
-
-2026.83*np.exp(-0.014336188)
 
 

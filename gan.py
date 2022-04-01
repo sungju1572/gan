@@ -14,6 +14,8 @@ import seaborn as sns
 import tensorflow as tf
 import math
 
+
+
 # 5) eager execution 기능 끄기
 tf.compat.v1.disable_eager_execution()
 

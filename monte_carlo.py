@@ -23,12 +23,16 @@ tf.compat.v1.disable_eager_execution()
 #코스피200 종가데이터 생성(실제데이터)
 df = fdr.DataReader('005930','2020')
 
+df = fdr.DataReader('000660','2021')
+
 #로그 수익률
 df['log_rtn'] = np.log(df.Close/df.Close.shift(1))
 df = df.dropna()[['log_rtn','Close']]
 
-df  = df[58:]
+df  = df[:200]
 
+
+plt.plot(df["Close"])
 
 df_close = df['Close']
 df_log = df['log_rtn']
@@ -78,11 +82,11 @@ for i in range(7):
 plt.plot(df_close[:200].Close, '-b', label="real data")
 plt.legend()
 
-
+                                                
 
 
 distribution_list = []
-distribution_list_200 = []
+distribution_list_100 = []
 for i in range(1000):
     r_n = np.random.normal(size = len(df))
     stock_random = np.array([])
@@ -98,18 +102,18 @@ for i in range(1000):
         else : 
             b = cumsum_list[-1] * np.exp(df_close['stock'][k])
             cumsum_list.append(b)
-            if k == 200:
-                distribution_list_200.append(b)
+            if k == 100:
+                distribution_list_100.append(b)
             
     distribution_list.append(b)
 
 
-df_close["Close"][200]
+df_close["Close"][100]
 
-len(distribution_list_200)
+len(distribution_list_100)
 len(distribution_list)
 
 
 plt.plot(distribution_list, label='Discriminated Fake Data', color='red')
 sns.kdeplot(distribution_list, color='blue', bw=0.3, label='REAL data')
-sns.kdeplot(distribution_list_200, color='blue', bw=0.3, label='REAL data')
+sns.kdeplot(distribution_list_100, color='blue', bw=0.3, label='REAL data')

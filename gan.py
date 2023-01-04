@@ -181,6 +181,135 @@ plt.show()
 
 
 
+fake_data_list = np.concatenate(fake_data).tolist()
+
+import random
+
+
+#로그 수익률 생성 함수(input 값: dataframe)
+def log_rtn(df):
+    df['log_rtn'] = np.log(df.Close/df.Close.shift(1))
+    df  = df.dropna()[['log_rtn','Close']]
+
+    
+    df['log_rtn'] = df['log_rtn']
+    train_log = df['log_rtn']
+    return train_log
+
+
+#정규분포 난수 생성 함수
+def random_normal():
+    r_n = random.sample(fake_data_list , 1)
+    return r_n[0]
+
+
+
+#변동률, 평균수익률, 종가 데이터 생성 (n : 며칠동안인지)
+def new_data(train):
+    train_log = log_rtn(train)
+    
+    r_n = []
+     
+    for i in range(len(train)):
+        sample = random_normal()
+        r_n.append(sample)
+    
+    
+    #일일 수익률(평균)
+    rtn_d = train_log.mean()
+    
+    #변동성(표준편차)
+    roc = np.std(train_log)
+    
+    #평균수익률
+    earning_rate_mean = rtn_d -0.5*((roc)**2)
+    
+    #수익률 
+    rtn = earning_rate_mean + roc*np.array(r_n)
+    
+    
+    #새로 생성한 종가 데이터
+
+        
+    data = (1000*np.cumprod(np.exp(rtn)))
+    
+    return data  
+
+
+data_list = []
+a = 100
+for i in range(len(rtn)):
+    a = a*(np.exp(rtn)[i])
+    data_list.append(a)
+
+a = np.exp(rtn)
+
+data_list[1]
+99.98512109397925
+
+b = 100*a[0]
+b*a[1]
+
+data[:3]
+
+1000 * a
+
+
+train_log = log_rtn(df)
+r_n = []
+     
+for i in range(len(df)):
+        sample = random_normal()
+        r_n.append(sample)
+    
+    
+    #일일 수익률(평균)
+rtn_d = train_log.mean()
+    
+    #변동성(표준편차)
+roc = np.std(train_log)
+    
+    #평균수익률
+earning_rate_mean = rtn_d -0.5*((roc)**2)
+    
+    #수익률 
+rtn = earning_rate_mean + roc*np.array(r_n)
+    
+    
+    #새로 생성한 종가 데이터
+data = (100*np.cumprod(np.exp(rtn)))
+
+
+sns.kdeplot(fake_data_list, color='blue', bw=0.3, label='REAL data')
+sns.kdeplot(r_n, color='blue', bw=0.3, label='REAL data')
+sns.kdeplot(rtn , color='blue', bw=0.3, label='REAL data')
+
+rtn.mean()
+sum(fake_data_list)/len(fake_data_list)
+
+sum(r_n)/len(r_n)
+
+real_data.mean()
+
+
+
+for i in range(100):
+    data = new_data(df)
+    plt.plot(data[:250])
+    plt.legend()
+
+a = []
+
+for i in range(500):
+    data = new_data(df)
+    a.append(data[:250][-1])
+
+#주가 분포
+sns.kdeplot(a , color='blue', bw=0.3, label='200')
+plt.legend()
+
+
+
 #정규분포 난수 -> GAN 추출 데이터로 대체
 
 fake_data_list = fake_data.reshape(len(fake_data),)
@@ -218,7 +347,8 @@ df_close['stock'] = df_close.Close.shift(1) * np.exp(stock_yield)
 df_close = df_close.dropna()
 
 
-df_close['cumsum'] = cumsum_list
+df_close['cumsum'] = cumsum_list[1:]
+
 
 
 plt.plot(df_close['cumsum'][-100:], '-r', label='GAN data')

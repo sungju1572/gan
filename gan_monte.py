@@ -34,7 +34,7 @@ import datetime
 from sklearn.model_selection import GridSearchCV
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
-
+import random
 
 
 
@@ -133,97 +133,97 @@ def build_GAN(discriminator, generator):
     
     return gan_model
 
-# 4) 학습
-K.clear_session() # 5) 그래프 초기화
-
-D = build_D() # discriminator 모델 빌드
-G = build_G() # generator 모델 빌드
-GAN = build_GAN(D, G) # GAN 네트워크 빌드
-
-n_batch_cnt = int(input('입력 데이터 배치 블록 수 설정: '))
-n_batch_size = int(real_data.shape[0] / n_batch_cnt)
-
-EPOCHS = int(input('학습 횟수 설정: '))
-
-
-for epoch in range(EPOCHS):
-    # 미니배치 업데이트
-    for n in range(n_batch_cnt):
-        from_, to_ = n*n_batch_size, (n+1)*n_batch_size
-        if n == n_batch_cnt -1 : # 마지막 루프
-            to_ = real_data.shape[0]
-        
-        # 학습 데이터 미니배치 준비
-        X_batch = real_data[from_: to_]
-        Z_batch = makeZ(m=X_batch.shape[0], n=g_input)
-        Gz = G.predict(Z_batch) # 가짜 데이터로부터 분포 생성
-        
-        # discriminator 학습 데이터 준비
-        d_target = np.zeros(X_batch.shape[0]*2)
-        d_target[:X_batch.shape[0]] = 0.9 
-        d_target[X_batch.shape[0]:] = 0.1
-        bX_Gz = np.concatenate([X_batch, Gz]) # 묶어줌.
-        
-        # generator 학습 데이터 준비
-        g_target = np.zeros(Z_batch.shape[0])
-        g_target[:] = 0.9 # 모두 할당해야 바뀜.
-        
-        # discriminator 학습        
-        loss_D = D.train_on_batch(bX_Gz, d_target) # loss 계산
-        
-        # generator 학습        
-        loss_G = GAN.train_on_batch(Z_batch, g_target)
-        
-    if epoch % 10 == 0:
-        z = makeZ(m=real_data.shape[0], n=g_input)
-        fake_data = G.predict(z) # 가짜 데이터 생성
-        print("Epoch: %d, D-loss = %.4f, G-loss = %.4f" %(epoch, loss_D, loss_G))
-        
-    if epoch % 300 == 0 :
-        z = makeZ(m=real_data.shape[0], n=g_input)
-        fake_data = G.predict(z)
+def gan_train(batch_size , epochs):
+    K.clear_session() # 5) 그래프 초기화
     
-        plt.figure(figsize=(8, 5))
-        sns.set_style('whitegrid')
-        sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
-        sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
-        plt.legend()
-        plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) )
-        plt.show()
+    D = build_D() # discriminator 모델 빌드
+    G = build_G() # generator 모델 빌드
+    GAN = build_GAN(D, G) # GAN 네트워크 빌드
+    
+    n_batch_cnt = batch_size
+    n_batch_size = int(real_data.shape[0] / n_batch_cnt)
+    
+    EPOCHS = epochs
+    
+    
+    for epoch in range(EPOCHS):
+        # 미니배치 업데이트
+        for n in range(n_batch_cnt):
+            from_, to_ = n*n_batch_size, (n+1)*n_batch_size
+            if n == n_batch_cnt -1 : # 마지막 루프
+                to_ = real_data.shape[0]
+            
+            # 학습 데이터 미니배치 준비
+            X_batch = real_data[from_: to_]
+            Z_batch = makeZ(m=X_batch.shape[0], n=g_input)
+            Gz = G.predict(Z_batch) # 가짜 데이터로부터 분포 생성
+            
+            # discriminator 학습 데이터 준비
+            d_target = np.zeros(X_batch.shape[0]*2)
+            d_target[:X_batch.shape[0]] = 0.9 
+            d_target[X_batch.shape[0]:] = 0.1
+            bX_Gz = np.concatenate([X_batch, Gz]) # 묶어줌.
+            
+            # generator 학습 데이터 준비
+            g_target = np.zeros(Z_batch.shape[0])
+            g_target[:] = 0.9 # 모두 할당해야 바뀜.
+            
+            # discriminator 학습        
+            loss_D = D.train_on_batch(bX_Gz, d_target) # loss 계산
+            
+            # generator 학습        
+            loss_G = GAN.train_on_batch(Z_batch, g_target)
+            
+        if epoch % 10 == 0:
+            z = makeZ(m=real_data.shape[0], n=g_input)
+            fake_data = G.predict(z) # 가짜 데이터 생성
+            print("Epoch: %d, D-loss = %.4f, G-loss = %.4f" %(epoch, loss_D, loss_G))
+            
+        """    
+        if epoch % 300 == 0 :
+            z = makeZ(m=real_data.shape[0], n=g_input)
+            fake_data = G.predict(z)
+        
+            plt.figure(figsize=(8, 5))
+            sns.set_style('whitegrid')
+            sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
+            sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
+            plt.legend()
+            plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) )
+            plt.show()
+        """
+    # 학습 완료 후 데이터 분포 시각화
+    z = makeZ(m=real_data.shape[0], n=g_input)
+    fake_data = G.predict(z)
+    
+    plt.figure(figsize=(8, 5))
+    sns.set_style('whitegrid')
+    sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
+    sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
+    plt.legend()
+    plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) )
+    plt.show()
+    
+    # 학습 완료 후 discriminator 판별 시각화
+    d_real_values = D.predict(real_data) # 실제 데이터 판별값
+    d_fake_values = D.predict(fake_data) # 가짜 데이터 판별값
 
-# 학습 완료 후 데이터 분포 시각화
-z = makeZ(m=real_data.shape[0], n=g_input)
-fake_data = G.predict(z)
-
-plt.figure(figsize=(8, 5))
-sns.set_style('whitegrid')
-sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
-sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
-plt.legend()
-plt.title('REAL vs. FAKE distribution')
-plt.show()
-
-# 학습 완료 후 discriminator 판별 시각화
-d_real_values = D.predict(real_data) # 실제 데이터 판별값
-d_fake_values = D.predict(fake_data) # 가짜 데이터 판별값
-
-plt.figure(figsize=(8, 5))
-plt.plot(d_real_values, label='Discriminated Real Data')
-plt.plot(d_fake_values, label='Discriminated Fake Data', color='red')
-plt.title("Discriminator vs. Generator")
-plt.legend()
-plt.show()
+    plt.figure(figsize=(8, 5))
+    plt.plot(d_real_values, label='Discriminated Real Data')
+    plt.plot(d_fake_values, label='Discriminated Fake Data', color='red')
+    plt.title("Discriminator vs. Generator")
+    plt.legend()
+    plt.show()
+        
+    return fake_data
 
 
 
 #정규분포 난수 -> GAN 추출 데이터로 대체
+def make_gan_nan(fake_data):
+    fake_data_list = fake_data.reshape(len(fake_data),)
+    return fake_data_list
 
-fake_data_list = fake_data.reshape(len(fake_data),)
-
-import random
-plt.plot(fake_data)
-
-random.choices(fake_data_list, k= 100)
 
 
 
@@ -239,7 +239,7 @@ def log_rtn(train):
     return train_log
 
 #GAN 난수 생성 함수
-def random_normal():
+def random_normal(fake_data_list):
     r_n = random.choices(fake_data_list, k= len(train))
     
     r_n = np.array(r_n).astype(np.float64)
@@ -249,9 +249,9 @@ def random_normal():
 
 
 #변동률, 평균수익률, 종가 데이터 생성 (n : 며칠동안인지)
-def new_data(train_real):
+def new_data(train_real, fake_data_list):
     train_log = log_rtn(train_real)
-    r_n = random_normal()
+    r_n = random_normal(fake_data_list)
     
     #일일 수익률(평균)
     rtn_d = train_log.mean()
@@ -271,13 +271,13 @@ def new_data(train_real):
     
     return data  
 
-
+"""
 #plot 그려보기
 for i in range(10):
-    data = new_data(train_real)
+    data = new_data(train_real, fake_data_list)
     plt.plot(data[:250])
     plt.legend()
-
+"""
 
 
 #라벨링 리스트 생성 함수(input : (data, 만들 행 갯수))
@@ -708,41 +708,49 @@ def pred(test_close, y_pred):
 
 
 
+import warnings
+warnings.filterwarnings('ignore')
 
 #데이터 자동화
+#epochs_list = [300,600,900,1200,1500]
+epochs_list = [1500]
 kospi_200_list = ["KS11"]
-count_list = [20,50,100,150,200,250]
+count_list = [200]
 
 result_df = pd.DataFrame(columns=["id", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
 
-
-for i in kospi_200_list:
-    train = fdr.DataReader(symbol= i, start='2015', end='2021')
-    train_real = train[247:]
-    
-    test = fdr.DataReader(symbol= i , start='2020', end='2022')
-    test = test[150:]
-
-    test_data = make_test(test)
-
-    test_close = test["Close"]
-    test_close  = test_close [97:]
-
-    
-    for j in count_list:
+for e in epochs_list:
+    for i in kospi_200_list:
+        train = fdr.DataReader(symbol= i, start='2015', end='2021')
+        train_real = train[247:]
         
+        test = fdr.DataReader(symbol= i , start='2020', end='2022')
+        test = test[150:]
+    
+        test_data = make_test(test)
+    
+        test_close = test["Close"]
+        test_close  = test_close [97:]
+    
+    
+        fake_data = gan_train(32 , e)
         
+        fake_data_list = make_gan_nan(fake_data)
+        
+    
+        #for j in count_list:
+            
         train_data = pd.DataFrame()
-        
-        for k in range(j):
-            data = new_data(train_real)
+            
+        for k in range(200):    
+            data = new_data(train_real,fake_data_list )
             df = tal(data, 338, 88)
             train_data = pd.concat([train_data, df])
-                 
+            
         train_data = train_data.reset_index(drop=True)   
-        
-        
-        
+            
+            
+            
         #train /test 라벨 나누기
         X_train = train_data.drop(["label"], axis = 1 ) #학습데이터
         y_train = train_data["label"] #정답라벨
@@ -751,35 +759,36 @@ for i in kospi_200_list:
         
         #로지스틱
         y_pred_lg = logistic(X_train, y_train, X_test, y_test)
-                
         
+            
         #DT
         y_pred_dt = DT(X_train, y_train, X_test, y_test)
 
         #rf
         y_pred_rf = RF(X_train, y_train, X_test, y_test)
-        
-        
+            
+            
         #xgboost
         y_pred_xg = Xgboost(X_train, y_train, X_test, y_test)
-        
-        
+            
+            
         trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
         trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt = pred(test_close, y_pred_dt)
         trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf = pred(test_close, y_pred_rf)
         trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg = pred(test_close, y_pred_xg)
-        
+            
         result_list = []
-        
-        result_list.append([i, j,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
-        result_list.append([i, j,"dt", trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt])
-        result_list.append([i, j,"rf", trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf])
-        result_list.append([i, j,"xg", trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg])
+            
+        result_list.append([e, 200,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
+        result_list.append([e, 200,"dt", trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt])
+        result_list.append([e, 200,"rf", trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf])
+        result_list.append([e, 200,"xg", trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg])
         
         df=pd.DataFrame(result_list ,columns=["id", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
         
         result_df = pd.concat([result_df, df])
         
-        print("종목티커 : " , i , "생성개수 : " ,j )
-                                              
-result_df.to_csv("1500_32.csv")
+        print("종목티커 : " , i , "생성개수 : " ,200 )
+    print("epoch :", e)
+                                                  
+result_df.to_csv("gan_200.csv")

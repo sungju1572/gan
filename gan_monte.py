@@ -35,7 +35,8 @@ from sklearn.model_selection import GridSearchCV
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
 import random
-
+import warnings
+warnings.filterwarnings('ignore')
 
 
 #train 데이터 (2016~2020.12)
@@ -466,6 +467,7 @@ def Xgboost(X_train, y_train, X_test, y_test):
                   'subsample': [0.7],
                   'colsample_bytree': [0.7],
                   'n_estimators': [500],
+                  'silent': [1],
                   "random_state" : [42]}
 
     xgb_grid = GridSearchCV(xgb1,
@@ -712,15 +714,16 @@ import warnings
 warnings.filterwarnings('ignore')
 
 #데이터 자동화
-#epochs_list = [300,600,900,1200,1500]
-epochs_list = [1500]
-kospi_200_list = ["KS11"]
-count_list = [200]
+epochs_list = [900,1200,1500]
+#epochs_list = [1500]
+kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720","000270","068270","028260","005490","105560","012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
+count_list = [20,50,100,150,200,250]
 
-result_df = pd.DataFrame(columns=["id", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
 
-for e in epochs_list:
-    for i in kospi_200_list:
+result_df = pd.DataFrame(columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
+
+for i in kospi_200_list:
+    for e in epochs_list:
         train = fdr.DataReader(symbol= i, start='2015', end='2021')
         train_real = train[247:]
         
@@ -738,57 +741,59 @@ for e in epochs_list:
         fake_data_list = make_gan_nan(fake_data)
         
     
-        #for j in count_list:
+        for c in count_list:
             
-        train_data = pd.DataFrame()
+            train_data = pd.DataFrame()
+                
+            for k in range(c):    
+                data = new_data(train_real,fake_data_list )
+                df = tal(data, 338, 88)
+                train_data = pd.concat([train_data, df])
+                
+            train_data = train_data.reset_index(drop=True)   
+                
             
-        for k in range(200):    
-            data = new_data(train_real,fake_data_list )
-            df = tal(data, 338, 88)
-            train_data = pd.concat([train_data, df])
             
-        train_data = train_data.reset_index(drop=True)   
+            #train /test 라벨 나누기
+            X_train = train_data.drop(["label"], axis = 1 ) #학습데이터
+            y_train = train_data["label"] #정답라벨
+            X_test = test_data.drop(['label'], axis=1) #test데이터
+            y_test = test_data["label"]
             
+            #로지스틱
+            y_pred_lg = logistic(X_train, y_train, X_test, y_test)
             
+                
+            #DT
+            y_pred_dt = DT(X_train, y_train, X_test, y_test)
+    
+            #rf
+            y_pred_rf = RF(X_train, y_train, X_test, y_test)
+                
+                
+            #xgboost
+            y_pred_xg = Xgboost(X_train, y_train, X_test, y_test)
+                
+                
+            trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
+            trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt = pred(test_close, y_pred_dt)
+            trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf = pred(test_close, y_pred_rf)
+            trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg = pred(test_close, y_pred_xg)
+                
+            result_list = []
+                
+            result_list.append([i, e, c,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
+            result_list.append([i, e, c,"dt", trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt])
+            result_list.append([i, e, c,"rf", trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf])
+            result_list.append([i, e, c,"xg", trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg])
             
-        #train /test 라벨 나누기
-        X_train = train_data.drop(["label"], axis = 1 ) #학습데이터
-        y_train = train_data["label"] #정답라벨
-        X_test = test_data.drop(['label'], axis=1) #test데이터
-        y_test = test_data["label"]
+            df=pd.DataFrame(result_list ,columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
+            
+            print("종목티커 : " , i , "에포크 :", e, "생성개수 : " ,c)
+            
+            result_df = pd.concat([result_df, df])
         
-        #로지스틱
-        y_pred_lg = logistic(X_train, y_train, X_test, y_test)
-        
             
-        #DT
-        y_pred_dt = DT(X_train, y_train, X_test, y_test)
-
-        #rf
-        y_pred_rf = RF(X_train, y_train, X_test, y_test)
-            
-            
-        #xgboost
-        y_pred_xg = Xgboost(X_train, y_train, X_test, y_test)
-            
-            
-        trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
-        trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt = pred(test_close, y_pred_dt)
-        trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf = pred(test_close, y_pred_rf)
-        trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg = pred(test_close, y_pred_xg)
-            
-        result_list = []
-            
-        result_list.append([e, 200,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
-        result_list.append([e, 200,"dt", trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt])
-        result_list.append([e, 200,"rf", trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf])
-        result_list.append([e, 200,"xg", trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg])
-        
-        df=pd.DataFrame(result_list ,columns=["id", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
-        
-        result_df = pd.concat([result_df, df])
-        
-        print("종목티커 : " , i , "생성개수 : " ,200 )
-    print("epoch :", e)
+        print("epoch :", e)
                                                   
 result_df.to_csv("gan_200.csv")

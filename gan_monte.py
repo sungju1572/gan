@@ -59,23 +59,22 @@ tf.compat.v1.disable_eager_execution()
 
 
 
-train['log_rtn'] = np.log(train.Close/train.Close.shift(1))
-train = train.dropna()[['log_rtn','Close']]
+def make_real_data(train_real):
+    
+    train_real['log_rtn'] = np.log(train_real.Close/train_real.Close.shift(1))
+    train_real = train_real.dropna()[['log_rtn','Close']]
 
-#GAN 분포 확인용
-df  = train[28:]
+    df_close = train_real['Close']
+    df_log = train_real['log_rtn']
 
-df_close = df['Close']
-df_log = df['log_rtn']
-df_log = df_log
+    #변동률 계산
+    roc = math.sqrt(((df_log - df_log.mean())**2).sum()/(len(df_log)-1))
 
-#변동률 계산
-roc = math.sqrt(((df_log - df_log.mean())**2).sum()/(len(df_log)-1))
+    #실제데이터
+    real_data = df_log.to_numpy()
+    real_data = real_data.reshape(len(real_data),1) 
 
-#실제데이터
-real_data = df_log.to_numpy()
-real_data = real_data.reshape(len(real_data),1) 
-
+    return real_data
 
 """
 # 실제 데이터 준비
@@ -90,7 +89,8 @@ def makeZ(m, n):
     return z
 
 # 모델 파라미터 설정
-d_input = real_data.shape[1]
+
+d_input = 1
 d_hidden = 32
 d_output = 1 # 주의
 g_input = 16
@@ -134,18 +134,42 @@ def build_GAN(discriminator, generator):
     
     return gan_model
 
-def gan_train(batch_size , epochs):
+#fid 계산
+# def calculate_fid(real_embeddings, generated_embeddings):
+#     # calculate mean and covariance statistics
+#     mu1, sigma1 = real_embeddings.mean(axis=0), np.cov(real_embeddings, rowvar=False)
+#     mu2, sigma2 = generated_embeddings.mean(axis=0), np.cov(generated_embeddings,  rowvar=False)
+#     # calculate sum squared difference between means
+#     ssdiff = np.sum((mu1 - mu2)**2.0)
+#     # calculate sqrt of product between cov
+#     covmean = linalg.sqrtm(sigma1.dot(sigma2))
+#     # check and correct imaginary numbers from sqrt
+#     if np.iscomplexobj(covmean):
+#        covmean = covmean.real
+#     # calculate score
+#     fid = ssdiff + np.trace(sigma1 + sigma2 - 2.0 * covmean)
+#     return fid
+
+
+
+def gan_train(batch_size , epochs, train_real, ticker ):
     K.clear_session() # 5) 그래프 초기화
     
     D = build_D() # discriminator 모델 빌드
     G = build_G() # generator 모델 빌드
     GAN = build_GAN(D, G) # GAN 네트워크 빌드
     
+    
+    real_data = make_real_data(train_real)
+    
     n_batch_cnt = batch_size
     n_batch_size = int(real_data.shape[0] / n_batch_cnt)
     
     EPOCHS = epochs
     
+
+    fid_list = []
+    stop_time = False
     
     for epoch in range(EPOCHS):
         # 미니배치 업데이트
@@ -175,13 +199,50 @@ def gan_train(batch_size , epochs):
             # generator 학습        
             loss_G = GAN.train_on_batch(Z_batch, g_target)
             
-        if epoch % 10 == 0:
-            z = makeZ(m=real_data.shape[0], n=g_input)
-            fake_data = G.predict(z) # 가짜 데이터 생성
-            print("Epoch: %d, D-loss = %.4f, G-loss = %.4f" %(epoch, loss_D, loss_G))
             
-        """    
-        if epoch % 300 == 0 :
+        
+        z = makeZ(m=real_data.shape[0], n=g_input)
+        fake_data = G.predict(z) # 가짜 데이터 생성
+        print("Epoch: %d, D-loss = %.4f, G-loss = %.4f" %(epoch, loss_D, loss_G))
+        
+        fid = (real_data.mean()- fake_data.mean())**2 + (np.std(real_data)-np.std(fake_data))**2
+        
+        print("fid :", fid*1000)
+        
+        fid_list.append(fid*1000)
+        
+        if epoch % 10 == 0:
+            
+            print("mean_fid :" + str(np.mean(fid_list)))
+            
+            if np.mean(fid_list)< 0.02 and epoch >500:
+                z = makeZ(m=real_data.shape[0], n=g_input)
+                fake_data = G.predict(z)
+            
+                plt.figure(figsize=(8, 5))
+                sns.set_style('whitegrid')
+                sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
+                sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
+                plt.legend()
+                plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + " fid: " + str(fid*1000) + "ticker : " + str(ticker))
+                plt.show()
+                
+                
+                print("mean_fid :" + str(np.mean(fid_list)))
+                
+                stop_time = True
+            fid_list = []
+                
+        
+        
+        if stop_time == True :
+            print("break time | epoch : " + str(epoch))
+            
+            break
+
+            
+        """   
+        if epoch % 30 == 0 :
             z = makeZ(m=real_data.shape[0], n=g_input)
             fake_data = G.predict(z)
         
@@ -190,9 +251,11 @@ def gan_train(batch_size , epochs):
             sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
             sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
             plt.legend()
-            plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) )
+            plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + " fid: " + str(fid*1000))
             plt.show()
         """
+        
+        
     # 학습 완료 후 데이터 분포 시각화
     z = makeZ(m=real_data.shape[0], n=g_input)
     fake_data = G.predict(z)
@@ -219,6 +282,11 @@ def gan_train(batch_size , epochs):
     return fake_data
 
 
+#plt.plot(fid_list[2:])
+#plt.plot(fid_list[3:])
+#len(fid_list)
+
+#min(fid_list)
 
 #정규분포 난수 -> GAN 추출 데이터로 대체
 def make_gan_nan(fake_data):
@@ -714,12 +782,14 @@ import warnings
 warnings.filterwarnings('ignore')
 
 #데이터 자동화
-epochs_list = [900,1200,1500]
-#epochs_list = [1500]
+#epochs_list = [900,1200,1500]
+epochs_list = [1500]
 #kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720","000270","068270","028260","005490","105560","012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
-kospi_200_list = ["015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
+kospi_200_list = ["010130","033780","010950","003490"]
+#kospi_200_list = ["015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
 
 count_list = [20,50,100,150,200,250]
+
 
 
 result_df = pd.DataFrame(columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
@@ -732,13 +802,15 @@ for i in kospi_200_list:
         test = fdr.DataReader(symbol= i , start='2020', end='2022')
         test = test[150:]
     
+        
+    
         test_data = make_test(test)
     
         test_close = test["Close"]
         test_close  = test_close [97:]
     
     
-        fake_data = gan_train(32 , e)
+        fake_data = gan_train(32 , e, train_real, i )
         
         fake_data_list = make_gan_nan(fake_data)
         

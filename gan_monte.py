@@ -211,11 +211,13 @@ def gan_train(batch_size , epochs, train_real, ticker ):
         
         fid_list.append(fid*1000)
         
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             
+            print("-----------------------")
             print("mean_fid :" + str(np.mean(fid_list)))
+            print("-----------------------")
             
-            if np.mean(fid_list)< 0.02 and epoch >500:
+            if np.mean(fid_list)< 0.015 and epoch > 300:
                 z = makeZ(m=real_data.shape[0], n=g_input)
                 fake_data = G.predict(z)
             
@@ -265,7 +267,7 @@ def gan_train(batch_size , epochs, train_real, ticker ):
     sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
     sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
     plt.legend()
-    plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) )
+    plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + "ticker : " + str(ticker))
     plt.show()
     
     # 학습 완료 후 discriminator 판별 시각화
@@ -784,8 +786,8 @@ warnings.filterwarnings('ignore')
 #데이터 자동화
 #epochs_list = [900,1200,1500]
 epochs_list = [1500]
-#kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720","000270","068270","028260","005490","105560","012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
-kospi_200_list = ["010130","033780","010950","003490"]
+kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720","000270","068270","028260","005490","105560","012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
+#kospi_200_list = ["010130","033780","010950","003490"]
 #kospi_200_list = ["015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
 
 count_list = [20,50,100,150,200,250]

@@ -39,18 +39,18 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-#train 데이터 (2016~2020.12)
-train = fdr.DataReader(symbol='KS11', start='2015', end='2021')
+#train 데이터 (2012~2019.12)
+train = fdr.DataReader(symbol='KS11', start='2012', end='2020')
 
-#실제 데이터 (로그 수익률 확인용 (2015.12.20~))
-train_real = train[247:]
+#실제 데이터 (로그 수익률 확인용 (2012.12.27~))
+train_real = train[246:]
 #모멘텀지수 사용해야 하므로 이전데이터 몇개 추가(2015년 데이터)
 train = train[220:]
 
 #train.to_csv('kospi.csv')
 
-#test 데이터 (2021.1~12)
-test = fdr.DataReader(symbol='KS11', start='2020', end='2022')
+#test 데이터 (2020~2022.12)
+test = fdr.DataReader(symbol='KS11', start='2019', end='2023')
 
 test = test[150:]
 
@@ -786,8 +786,8 @@ warnings.filterwarnings('ignore')
 #데이터 자동화
 #epochs_list = [900,1200,1500]
 epochs_list = [1500]
-#kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720","000270","068270","028260","005490","105560","012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
-kospi_200_list = ["010130","033780","010950","003490"]
+kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720","000270","068270","028260","005490","105560","012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
+#kospi_200_list = ["010130","033780","010950","003490"]
 #kospi_200_list = ["015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
 
 count_list = [20,50,100,150,200,250]
@@ -798,10 +798,10 @@ result_df = pd.DataFrame(columns=["ticker","epoch", "count","model", "trade_coun
 
 for i in kospi_200_list:
     for e in epochs_list:
-        train = fdr.DataReader(symbol= i, start='2015', end='2021')
-        train_real = train[247:]
+        train = fdr.DataReader(symbol= i, start='2012', end='2020')
+        train_real = train[246:]
         
-        test = fdr.DataReader(symbol= i , start='2020', end='2022')
+        test = fdr.DataReader(symbol= i ,start='2019', end='2023')
         test = test[150:]
     
         
@@ -809,7 +809,7 @@ for i in kospi_200_list:
         test_data = make_test(test)
     
         test_close = test["Close"]
-        test_close  = test_close [97:]
+        test_close  = test_close [96:]
     
     
         fake_data = gan_train(32 , e, train_real, i )

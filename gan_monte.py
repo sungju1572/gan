@@ -790,7 +790,8 @@ kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720"
 #kospi_200_list = ["010130","033780","010950","003490"]
 #kospi_200_list = ["015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
 
-count_list = [20,50,100,150,200,250]
+count_list = [20,50,100,150,200]
+
 
 
 
@@ -809,7 +810,7 @@ for i in kospi_200_list:
         test_data = make_test(test)
     
         test_close = test["Close"]
-        test_close  = test_close [96:]
+        test_close  = test_close [97:]
     
     
         fake_data = gan_train(32 , e, train_real, i )
@@ -817,6 +818,7 @@ for i in kospi_200_list:
         fake_data_list = make_gan_nan(fake_data)
         
     
+
         for c in count_list:
             
             train_data = pd.DataFrame()
@@ -866,6 +868,7 @@ for i in kospi_200_list:
             df=pd.DataFrame(result_list ,columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
             
             print("종목티커 : " , i , "에포크 :", e, "생성개수 : " ,c)
+
             
             result_df = pd.concat([result_df, df])
         

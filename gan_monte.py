@@ -875,7 +875,7 @@ for i in kospi_200_list:
             
         print("epoch :", e)
                                                   
-#result_df.to_csv("gan_200.csv")
+#result_df.to_csv("gan_result_fid_0015_epoch_200_2.csv")
 
 
 

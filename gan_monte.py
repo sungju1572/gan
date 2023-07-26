@@ -226,7 +226,7 @@ def gan_train(batch_size , epochs, train_real, ticker ):
                 sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
                 sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
                 plt.legend()
-                plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + " fid: " + str(fid*1000) + "ticker : " + str(ticker))
+                plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + " fid: " + str(round(fid*1000, 5)) + " | ticker : " + str(ticker))
                 plt.show()
                 
                 
@@ -261,13 +261,13 @@ def gan_train(batch_size , epochs, train_real, ticker ):
     # 학습 완료 후 데이터 분포 시각화
     z = makeZ(m=real_data.shape[0], n=g_input)
     fake_data = G.predict(z)
-    
+
     plt.figure(figsize=(8, 5))
     sns.set_style('whitegrid')
     sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
     sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
     plt.legend()
-    plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + "ticker : " + str(ticker))
+    plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + " | ticker : " + str(ticker))
     plt.show()
     
     # 학습 완료 후 discriminator 판별 시각화
@@ -484,7 +484,7 @@ def make_test(test):
 
 #로지스틱모델
 def logistic(X_train, y_train, X_test, y_test):
-    np.random.seed(42)
+    np.random.seed(40)
     model = LogisticRegression()
     model.fit(X_train, y_train)
     #print(model.score(X_train, y_train))
@@ -495,7 +495,7 @@ def logistic(X_train, y_train, X_test, y_test):
     
 #결정트리모델
 def DT(X_train, y_train, X_test, y_test):
-    np.random.seed(42)
+    np.random.seed(40)
     clf = tree.DecisionTreeClassifier()
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
@@ -505,7 +505,7 @@ def DT(X_train, y_train, X_test, y_test):
 
 #knn 모델
 def KNN(X_train, y_train, X_test, y_test):
-    np.random.seed(42)
+    np.random.seed(40)
     
     classifier = KNeighborsClassifier(n_neighbors = 5)
     classifier.fit(X_train, y_train)
@@ -517,7 +517,7 @@ def KNN(X_train, y_train, X_test, y_test):
     
 #랜덤포레스트 모델
 def RF(X_train, y_train, X_test, y_test):    
-    rfc = RandomForestClassifier(random_state=42)
+    rfc = RandomForestClassifier(random_state=40)
     rfc.fit(X_train, y_train)
     y_pred = rfc.predict(X_test)
 
@@ -538,7 +538,7 @@ def Xgboost(X_train, y_train, X_test, y_test):
                   'colsample_bytree': [0.7],
                   'n_estimators': [500],
                   'silent': [1],
-                  "random_state" : [42]}
+                  "random_state" : [40]}
 
     xgb_grid = GridSearchCV(xgb1,
                             parameters,
@@ -550,17 +550,17 @@ def Xgboost(X_train, y_train, X_test, y_test):
              y_train)
 
 
-   # print(xgb_grid.best_score_)
-    #print(xgb_grid.best_params_)
+    #print(xgb_grid.best_score_)
+    print(xgb_grid.best_params_)
 
 
 
     #prediction
     y_pred = xgb_grid.predict(X_test)
+    best_params = xgb_grid.best_params_
+    acc = accuracy_score(y_pred, y_test) #0.540650406504065
 
-    #print(accuracy_score(y_pred, y_test)) #0.540650406504065
-
-    return y_pred
+    return y_pred , best_params, acc
 
 
 
@@ -796,7 +796,7 @@ count_list = [20,50,100,150,200]
 
 
 result_df = pd.DataFrame(columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
-
+xgboost_parems = {}
 for i in kospi_200_list:
     for e in epochs_list:
         train = fdr.DataReader(symbol= i, start='2012', end='2020')
@@ -850,9 +850,10 @@ for i in kospi_200_list:
                 
                 
             #xgboost
-            y_pred_xg = Xgboost(X_train, y_train, X_test, y_test)
+            y_pred_xg, best_params, acc = Xgboost(X_train, y_train, X_test, y_test)
                 
-                
+            xgboost_parems[i + "_" + str(c)] =  best_params
+            
             trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
             trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt = pred(test_close, y_pred_dt)
             trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf = pred(test_close, y_pred_rf)
@@ -875,7 +876,7 @@ for i in kospi_200_list:
             
         print("epoch :", e)
                                                   
-#result_df.to_csv("gan_result_fid_0015_epoch_200_2.csv")
+result_df.to_csv("gan_result_fid_fi.csv")
 
 
 

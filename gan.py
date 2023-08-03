@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import tensorflow as tf
 import math
-
-
+from scipy.stats import ks_2samp
+from scipy.stats import entropy
 
 # 5) eager execution 기능 끄기
 tf.compat.v1.disable_eager_execution()
@@ -110,7 +110,7 @@ n_batch_size = int(real_data.shape[0] / n_batch_cnt)
 
 EPOCHS = int(input('학습 횟수 설정: '))
 
-
+  
 for epoch in range(EPOCHS):
     # 미니배치 업데이트
     for n in range(n_batch_cnt):
@@ -125,7 +125,7 @@ for epoch in range(EPOCHS):
         
         # discriminator 학습 데이터 준비
         d_target = np.zeros(X_batch.shape[0]*2)
-        d_target[:X_batch.shape[0]] = 0.9 
+        d_target[:X_batch.shape[0]] = 0.9   
         d_target[X_batch.shape[0]:] = 0.1
         bX_Gz = np.concatenate([X_batch, Gz]) # 묶어줌.
         
@@ -155,6 +155,25 @@ for epoch in range(EPOCHS):
         plt.legend()
         plt.title('REAL vs. FAKE distribution')
         plt.show()
+
+
+
+arr1_flat = fake_data.flatten()
+
+
+kld = entropy(real_data.flatten(), fake_data.flatten())
+
+statistic, p_value = ks_2samp((fake_data*100).flatten(), (real_data*100).flatten())
+x = np.linspace(-5, 5, 1000)
+cdf_generated = np.cumsum(np.histogram(fake_data, bins=1000, range=(-5, 5), density=True)[0])
+cdf_real = np.cumsum(np.histogram(real_data, bins=1000, range=(-5, 5), density=True)[0])
+
+plt.plot(x, cdf_generated, label='Generated Data')
+plt.plot(x, cdf_real, label='Real Data')
+plt.legend()
+plt.title("KS Test: p-value={:.2f}".format(p_value))
+plt.show()
+
 
 # 학습 완료 후 데이터 분포 시각화
 z = makeZ(m=real_data.shape[0], n=g_input)

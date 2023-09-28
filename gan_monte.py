@@ -477,7 +477,7 @@ def make_test(test):
     
     #test_data 생성(종가 제외)
     test_data = pd.DataFrame(data)
-    test_data = test_data.reset_index(drop=True)
+    #test_data = test_data.reset_index(drop=True)
 
     return test_data
 
@@ -527,7 +527,7 @@ def RF(X_train, y_train, X_test, y_test):
 
 #xgboost 모델
 def Xgboost(X_train, y_train, X_test, y_test):
-    xgb1 = XGBClassifier(tree_method='gpu_hist', gpu_id=0)
+    xgb1 = XGBClassifier(tree_method = "hist", device = "cuda")
     parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
                   'objective':['binary:logistic'],
                   'learning_rate': [.03, 0.05, .07], #so called `eta` value
@@ -572,17 +572,20 @@ def pred(test_close, y_pred):
 
     test_data_pred = pd.DataFrame(test_close,columns=['Close'])
     test_data_pred = test_data_pred.reset_index(drop=True)
+
     
     test_data_rtn = test_data_pred['Close'].pct_change() * 100
 
 
     test_data_pred["rtn"] = test_data_rtn  
 
-    test_data_pred = test_data_pred[3:].dropna().reset_index()
-
     test_data_pred['label'] = y_pred
 
+    test_data_pred = test_data_pred[1:].dropna().reset_index()
 
+
+
+    
 
     test_data_pred['position'] = None
 
@@ -787,96 +790,143 @@ warnings.filterwarnings('ignore')
 #epochs_list = [900,1200,1500]
 epochs_list = [1500]
 kospi_200_list = ["005930","000660","051910","006400","035420","005380","035720","000270","068270","028260","005490","105560","012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
-#kospi_200_list = ["010130","033780","010950","003490"]
-#kospi_200_list = ["015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
+#kospi_200_list = ["028260","005490","105560"]
+#kospi_200_list = ["012330","096770","055550","034730","066570","015760","034020","003550","003670","032830","011200","086790","017670","051900","010130","033780","010950","003490"]
 
 count_list = [20,50,100,150,200]
 
+train_count = [3,4,5]
 
 
-
-result_df = pd.DataFrame(columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
+#result_df = pd.DataFrame(columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
 xgboost_parems = {}
-for i in kospi_200_list:
-    for e in epochs_list:
-        train = fdr.DataReader(symbol= i, start='2012', end='2020')
-        train_real = train[246:]
-        
-        test = fdr.DataReader(symbol= i ,start='2019', end='2023')
-        test = test[150:]
-    
-        
-    
-        test_data = make_test(test)
-    
-        test_close = test["Close"]
-        test_close  = test_close [97:]
-    
-    
-        fake_data = gan_train(32 , e, train_real, i )
-        
-        fake_data_list = make_gan_nan(fake_data)
-        
-    
 
-        for c in count_list:
-            
-            train_data = pd.DataFrame()
-                
-            for k in range(c):    
-                data = new_data(train_real,fake_data_list )
-                df = tal(data, 338, 88)
-                train_data = pd.concat([train_data, df])
-                
-            train_data = train_data.reset_index(drop=True)   
-                
-            
-            
-            #train /test 라벨 나누기
-            X_train = train_data.drop(["label"], axis = 1 ) #학습데이터
-            y_train = train_data["label"] #정답라벨
-            X_test = test_data.drop(['label'], axis=1) #test데이터
-            y_test = test_data["label"]
-            
-            #로지스틱
-            y_pred_lg = logistic(X_train, y_train, X_test, y_test)
-            
-                
-            #DT
-            y_pred_dt = DT(X_train, y_train, X_test, y_test)
+for count in train_count :
+    result_df = pd.DataFrame(columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
     
-            #rf
-            y_pred_rf = RF(X_train, y_train, X_test, y_test)
-                
-                
-            #xgboost
-            y_pred_xg, best_params, acc = Xgboost(X_train, y_train, X_test, y_test)
-                
-            xgboost_parems[i + "_" + str(c)] =  best_params
-            
-            trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
-            trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt = pred(test_close, y_pred_dt)
-            trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf = pred(test_close, y_pred_rf)
-            trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg = pred(test_close, y_pred_xg)
-                
-            result_list = []
-                
-            result_list.append([i, e, c,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
-            result_list.append([i, e, c,"dt", trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt])
-            result_list.append([i, e, c,"rf", trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf])
-            result_list.append([i, e, c,"xg", trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg])
-            
-            df=pd.DataFrame(result_list ,columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
-            
-            print("종목티커 : " , i , "에포크 :", e, "생성개수 : " ,c)
+    for i in kospi_200_list:
+        for e in epochs_list:
+            train = fdr.DataReader(symbol= i, start='2017', end=str(2017 + count))
+    
+            if count == 3 :
+                test = fdr.DataReader(symbol= i ,start='2019', end='2021')
 
-            
-            result_df = pd.concat([result_df, df])
+                test_data = make_test(test)
         
+    
+                test_data = test_data.reset_index()
             
-        print("epoch :", e)
-                                                  
-result_df.to_csv("gan_result_fid_fi.csv")
+
+                test_data = test_data[147:]
+            
+                test_data = test_data.drop(['Date'], axis=1)
+            
+        
+                test_close = test["Close"]
+                test_close  = test_close[246:-1]
+            
+            elif count == 4 :
+                test = fdr.DataReader(symbol= i ,start='2020', end='2022')
+
+                test_data = make_test(test)
+        
+    
+                test_data = test_data.reset_index()
+            
+
+                test_data = test_data[149:]
+            
+                test_data = test_data.drop(['Date'], axis=1)
+            
+        
+                test_close = test["Close"]
+                test_close  = test_close[248:-1]
+                
+            elif count == 5 :
+                test = fdr.DataReader(symbol= i ,start='2021', end='2023')
+
+                test_data = make_test(test)
+        
+    
+                test_data = test_data.reset_index()
+            
+
+                test_data = test_data[149:]
+            
+                test_data = test_data.drop(['Date'], axis=1)
+            
+        
+                test_close = test["Close"]
+                test_close  = test_close[248:-1]
+                
+                
+            
+        
+        
+            fake_data = gan_train(32 , e, train, i )
+            
+            fake_data_list = make_gan_nan(fake_data)
+            
+            
+    
+            for c in count_list:
+                
+                train_data = pd.DataFrame()
+                    
+                for k in range(c):    
+                    data = new_data(train_real,fake_data_list )
+                    df = tal(data, 338, 88)
+                    train_data = pd.concat([train_data, df])
+                    
+                train_data = train_data.reset_index(drop=True)   
+                    
+                
+                
+                #train /test 라벨 나누기
+                X_train = train_data.drop(["label"], axis = 1 ) #학습데이터
+                y_train = train_data["label"] #정답라벨
+                X_test = test_data.drop(['label'], axis=1) #test데이터
+                y_test = test_data["label"]
+                
+                #로지스틱
+                y_pred_lg = logistic(X_train, y_train, X_test, y_test)
+
+                    
+                #DT
+                y_pred_dt = DT(X_train, y_train, X_test, y_test)
+        
+                #rf
+                y_pred_rf = RF(X_train, y_train, X_test, y_test)
+                    
+                    
+                #xgboost
+                y_pred_xg, best_params, acc = Xgboost(X_train, y_train, X_test, y_test)
+                    
+                xgboost_parems[i + "_" + str(c)] =  best_params
+                
+                trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
+                trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt = pred(test_close, y_pred_dt)
+                trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf = pred(test_close, y_pred_rf)
+                trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg = pred(test_close, y_pred_xg)
+                    
+                result_list = []
+                    
+                result_list.append([i, e, c,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
+                result_list.append([i, e, c,"dt", trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt])
+                result_list.append([i, e, c,"rf", trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf])
+                result_list.append([i, e, c,"xg", trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg])
+                
+                df=pd.DataFrame(result_list ,columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
+                
+                print("종목티커 : " , i , "에포크 :", e, "생성개수 : " ,c)
+    
+                
+                result_df = pd.concat([result_df, df])
+            
+                
+            print("epoch :", e)
+                                                      
+    result_df.to_csv(str(count) + "_result.csv")
 
 
 

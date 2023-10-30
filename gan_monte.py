@@ -36,26 +36,12 @@ import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
 import random
 import warnings
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.init as init
+
 warnings.filterwarnings('ignore')
-
-
-#train 데이터 (2012~2019.12)
-train = fdr.DataReader(symbol='KS11', start='2012', end='2020')
-
-#실제 데이터 (로그 수익률 확인용 (2012.12.27~))
-train_real = train[246:]
-#모멘텀지수 사용해야 하므로 이전데이터 몇개 추가(2015년 데이터)
-train = train[220:]
-
-#train.to_csv('kospi.csv')
-
-#test 데이터 (2020~2022.12)
-test = fdr.DataReader(symbol='KS11', start='2019', end='2023')
-
-test = test[150:]
-
-# 5) eager execution 기능 끄기
-tf.compat.v1.disable_eager_execution()
 
 
 
@@ -217,7 +203,7 @@ def gan_train(batch_size , epochs, train_real, ticker ):
             print("mean_fid :" + str(np.mean(fid_list)))
             print("-----------------------")
             
-            if np.mean(fid_list)< 0.015 and epoch > 200:
+            if np.mean(fid_list)< 0.015 and epoch > 150:
                 z = makeZ(m=real_data.shape[0], n=g_input)
                 fake_data = G.predict(z)
             
@@ -233,7 +219,17 @@ def gan_train(batch_size , epochs, train_real, ticker ):
                 print("mean_fid :" + str(np.mean(fid_list)))
                 
                 stop_time = True
+
+
+            plt.hist(real_data, bins=20, label='Reak Data', alpha=0.5)
+            plt.hist(fake_data, bins=20, label='Generated Data', alpha=0.5)
+            plt.legend()
+            plt.title(f'Epoch {epoch} ticker {ticker}')
+            plt.show()
+                
             fid_list = []
+            
+                
                 
         
         
@@ -242,21 +238,7 @@ def gan_train(batch_size , epochs, train_real, ticker ):
             
             break
 
-            
-        """   
-        if epoch % 30 == 0 :
-            z = makeZ(m=real_data.shape[0], n=g_input)
-            fake_data = G.predict(z)
-        
-            plt.figure(figsize=(8, 5))
-            sns.set_style('whitegrid')
-            sns.kdeplot(real_data[:, 0], color='blue', bw=0.3, label='REAL data')
-            sns.kdeplot(fake_data[:, 0], color='red', bw=0.3, label='FAKE data')
-            plt.legend()
-            plt.title('REAL vs. FAKE distribution | epoch : ' + str(epoch) + " fid: " + str(fid*1000))
-            plt.show()
-        """
-        
+
         
     # 학습 완료 후 데이터 분포 시각화
     z = makeZ(m=real_data.shape[0], n=g_input)
@@ -320,8 +302,8 @@ def random_normal(fake_data_list):
 
 
 #변동률, 평균수익률, 종가 데이터 생성 (n : 며칠동안인지)
-def new_data(train_real, fake_data_list):
-    train_log = log_rtn(train_real)
+def new_data(train, fake_data_list):
+    train_log = log_rtn(train)
     r_n = random_normal(fake_data_list)
     
     #일일 수익률(평균)
@@ -561,6 +543,133 @@ def Xgboost(X_train, y_train, X_test, y_test):
     acc = accuracy_score(y_pred, y_test) #0.540650406504065
 
     return y_pred , best_params, acc
+
+
+#MLP
+def MLP(X_train, y_train, X_test, y_test):
+    # 신경망 모델 정의
+    class NeuralNetwork(nn.Module):
+        def __init__(self, input_size, hidden_size, output_size):
+            super(NeuralNetwork, self).__init__()
+            self.fc1 = nn.Linear(input_size, hidden_size)
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(0.1)
+            self.fc2 = nn.Linear(hidden_size, output_size)
+            self.sigmoid = nn.Sigmoid()
+        
+        def forward(self, x):
+            out = self.fc1(x)
+            out = self.relu(out)
+            out = self.dropout(out)
+            out = self.fc2(out)
+            out = self.sigmoid(out)
+            return out
+
+    # 모델 초기화 및 하이퍼파라미터 설정
+    input_size = 15  # 입력 피처의 차원
+    hidden_size = 128  # 은닉층의 뉴런 수
+    output_size = 1  # 출력의 차원 (이진 분류이므로 1)
+
+    model = NeuralNetwork(input_size, hidden_size, output_size)
+    criterion = nn.BCELoss()  # 이진 교차 엔트로피 손실
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+
+    X_train_1 = torch.tensor(X_train.values, dtype=torch.float32)
+    y_train_1 = torch.tensor(y_train.values, dtype=torch.float32).view(-1, 1)
+    X_test_1 = torch.tensor(X_test.values, dtype=torch.float32)
+
+
+
+    # 모델 훈련
+    num_epochs = 2000
+    for epoch in range(num_epochs):
+        outputs = model(X_train_1 )
+        loss = criterion(outputs, y_train_1)
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        if (epoch + 1) % 100 == 0:
+            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item()}')
+
+    # 모델 테스트
+    with torch.no_grad():
+
+        test_output = model(X_test_1)
+        predictions = (test_output > 0.5).int().numpy()
+        print("Predictions:", predictions.flatten())
+        
+    return predictions.flatten()
+
+#DNN
+def DNN(X_train, y_train, X_test, y_test):
+    # 신경망 모델 정의
+    class NeuralNetwork(nn.Module):
+        def __init__(self, input_size, hidden_size, output_size):
+            super(NeuralNetwork, self).__init__()
+            self.fc1 = nn.Linear(input_size, hidden_size)
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(0.1)
+            self.fc2 = nn.Linear(hidden_size, hidden_size_2)
+            self.relu = nn.ReLU()
+            self.dropout2 = nn.Dropout(0.1)
+            self.fc3 = nn.Linear(hidden_size_2, output_size)
+            self.sigmoid = nn.Sigmoid()
+        
+        def forward(self, x):
+            out = self.fc1(x)
+            out = self.relu(out)
+            out = self.dropout(out)
+            out = self.fc2(out)
+            out = self.relu(out)
+            out = self.dropout2(out)
+            out = self.fc3(out)
+            out = self.sigmoid(out)
+            return out
+
+    # 모델 초기화 및 하이퍼파라미터 설정
+    input_size = 15  # 입력 피처의 차원
+    hidden_size = 128  # 은닉층의 뉴런 수
+    hidden_size_2 = 128  # 은닉층의 뉴런 수
+    output_size = 1  # 출력의 차원 (이진 분류이므로 1)
+
+    model = NeuralNetwork(input_size, hidden_size, output_size)
+    criterion = nn.BCELoss()  # 이진 교차 엔트로피 손실
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+
+    X_train_1 = torch.tensor(X_train.values, dtype=torch.float32)
+    y_train_1 = torch.tensor(y_train.values, dtype=torch.float32).view(-1, 1)
+    X_test_1 = torch.tensor(X_test.values, dtype=torch.float32)
+
+
+
+    # 모델 훈련
+    num_epochs = 2000
+    for epoch in range(num_epochs):
+        outputs = model(X_train_1 )
+        loss = criterion(outputs, y_train_1)
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        if (epoch + 1) % 100 == 0:
+            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item()}')
+
+    # 모델 테스트
+    with torch.no_grad():
+
+        test_output = model(X_test_1)
+        predictions = (test_output > 0.5).int().numpy()
+        print("Predictions:", predictions.flatten())
+        
+    return predictions.flatten()
+
+
+
 
 
 
@@ -806,14 +915,13 @@ for count in train_count :
     
     for i in kospi_200_list:
         for e in epochs_list:
-            train = fdr.DataReader(symbol= i, start='2017', end=str(2017 + count))
-    
             if count == 3 :
+                train = fdr.DataReader(symbol= i, start='2017', end='2020')
                 test = fdr.DataReader(symbol= i ,start='2019', end='2021')
 
                 test_data = make_test(test)
         
-    
+
                 test_data = test_data.reset_index()
             
 
@@ -824,13 +932,15 @@ for count in train_count :
         
                 test_close = test["Close"]
                 test_close  = test_close[246:-1]
-            
+
+
             elif count == 4 :
+                train = fdr.DataReader(symbol= i, start='2018', end='2021')
                 test = fdr.DataReader(symbol= i ,start='2020', end='2022')
 
                 test_data = make_test(test)
         
-    
+
                 test_data = test_data.reset_index()
             
 
@@ -841,13 +951,14 @@ for count in train_count :
         
                 test_close = test["Close"]
                 test_close  = test_close[248:-1]
-                
+
             elif count == 5 :
+                train = fdr.DataReader(symbol= i, start='2019', end='2022')
                 test = fdr.DataReader(symbol= i ,start='2021', end='2023')
 
                 test_data = make_test(test)
         
-    
+
                 test_data = test_data.reset_index()
             
 
@@ -859,6 +970,8 @@ for count in train_count :
                 test_close = test["Close"]
                 test_close  = test_close[248:-1]
                 
+            
+            #train_real = make_real_data(train)
                 
             
         
@@ -874,7 +987,7 @@ for count in train_count :
                 train_data = pd.DataFrame()
                     
                 for k in range(c):    
-                    data = new_data(train_real,fake_data_list )
+                    data = new_data(train,fake_data_list )
                     df = tal(data, 338, 88)
                     train_data = pd.concat([train_data, df])
                     
@@ -889,7 +1002,7 @@ for count in train_count :
                 y_test = test_data["label"]
                 
                 #로지스틱
-                y_pred_lg = logistic(X_train, y_train, X_test, y_test)
+                #y_pred_lg = logistic(X_train, y_train, X_test, y_test)
 
                     
                 #DT
@@ -904,17 +1017,30 @@ for count in train_count :
                     
                 xgboost_parems[i + "_" + str(c)] =  best_params
                 
-                trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
+                
+                #MLP
+                y_pred_mlp = MLP(X_train, y_train, X_test, y_test)
+                
+                #DNN
+                y_pred_dnn = DNN(X_train, y_train, X_test, y_test)
+                
+                
+                #trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg = pred(test_close, y_pred_lg)
                 trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt = pred(test_close, y_pred_dt)
                 trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf = pred(test_close, y_pred_rf)
                 trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg = pred(test_close, y_pred_xg)
-                    
+                trade_count_mlp, winning_ratio_mlp, mean_gain_mlp , mean_loss_mlp, payoff_ratio_mlp , sum_gain_mlp , sum_loss_mlp , profit_factor_mlp = pred(test_close, y_pred_mlp)
+                trade_count_dnn, winning_ratio_dnn, mean_gain_dnn , mean_loss_dnn, payoff_ratio_dnn , sum_gain_dnn , sum_loss_dnn , profit_factor_dnn = pred(test_close, y_pred_dnn)
+                        
                 result_list = []
                     
-                result_list.append([i, e, c,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
+                #result_list.append([i, e, c,"lg", trade_count_lg, winning_ratio_lg, mean_gain_lg , mean_loss_lg, payoff_ratio_lg , sum_gain_lg , sum_loss_lg , profit_factor_lg])
                 result_list.append([i, e, c,"dt", trade_count_dt, winning_ratio_dt, mean_gain_dt , mean_loss_dt, payoff_ratio_dt , sum_gain_dt , sum_loss_dt , profit_factor_dt])
                 result_list.append([i, e, c,"rf", trade_count_rf, winning_ratio_rf, mean_gain_rf , mean_loss_rf, payoff_ratio_rf , sum_gain_rf , sum_loss_rf , profit_factor_rf])
                 result_list.append([i, e, c,"xg", trade_count_xg, winning_ratio_xg, mean_gain_xg , mean_loss_xg, payoff_ratio_xg , sum_gain_xg , sum_loss_xg , profit_factor_xg])
+                result_list.append([i, e, c,"mlp", trade_count_mlp, winning_ratio_mlp, mean_gain_mlp , mean_loss_mlp, payoff_ratio_mlp , sum_gain_mlp , sum_loss_mlp , profit_factor_mlp])
+                result_list.append([i, e, c,"dnn", trade_count_dnn, winning_ratio_dnn, mean_gain_dnn , mean_loss_dnn, payoff_ratio_dnn , sum_gain_dnn , sum_loss_dnn , profit_factor_dnn])
+                
                 
                 df=pd.DataFrame(result_list ,columns=["ticker","epoch", "count","model", "trade_count", "winning_ratio", "mean_gain", "mean_loss", "payoff_ratio" , "sum_gain" , "sum_loss" , "profit_factor"])
                 
@@ -926,7 +1052,7 @@ for count in train_count :
                 
             print("epoch :", e)
                                                       
-    result_df.to_csv(str(count) + "_result.csv")
+    result_df.to_csv(str(count) + "_gan_result.csv")
 
 
 
